@@ -1,0 +1,12 @@
+Array
+(
+    [name] => rgh
+    [address] => gffj
+    [nominee] => hhjklh
+    [email] => sddsd@gmail.com
+    [mobile] => 7654346776
+    [age] => 19
+    [gender] => Male
+    [password] => 788787
+    [confirmPassword] => 788787
+)
