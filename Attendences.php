@@ -1,115 +1,53 @@
 <?php
-session_start(); // Start the session
+session_start();
+include 'db_connection.php'; // Include database connection
 
-// Handle CORS
 if (isset($_SERVER['HTTP_ORIGIN'])) {
-    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
+    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}"); // ✅ Allow Dynamic Origin
 } else {
-    header("Access-Control-Allow-Origin: http://localhost:5174");
+    header("Access-Control-Allow-Origin: http://localhost:5174"); // ✅ Replace with your frontend URL
 }
 
 header("Access-Control-Allow-Credentials: true");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Methods: POST, OPTIONS"); // ✅ Allow POST requests
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json");
 
-// Handle Preflight Request (OPTIONS)
+// ✅ Handle Preflight Request (OPTIONS)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
 
-// Database connection
-$conn = new mysqli("localhost", "root", "", "final_project");
-
-if ($conn->connect_error) {
-    die(json_encode([
-        "success" => false,
-        "error" => "Database connection failed: " . $conn->connect_error
-    ]));
+// Ensure it's a POST request
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(["error" => "Invalid request method"]);
+    exit();
 }
 
-// Debugging: Check which session variables are set
-error_log("Session variables: " . print_r($_SESSION, true));
-
-// Get data from the frontend
+// Get JSON input
 $data = json_decode(file_get_contents("php://input"), true);
 
-if (!$data) {
-    echo json_encode([
-        "success" => false,
-        "error" => "Invalid input data",
-        "receivedData" => "No data received from frontend",
-        "sessionVariables" => $_SESSION // Include session variables in the response
-    ]);
+if (!isset($data['type'], $data['location'], $data['sessionEmail'], $data['sessionId'])) {
+    echo json_encode(["error" => "Invalid input data"]);
     exit();
 }
 
-// Debugging: Log received data
-error_log("Received data: " . print_r($data, true));
+// Sanitize input
+$type = mysqli_real_escape_string($conn, $data['type']);
+$location = mysqli_real_escape_string($conn, $data['location']);
+$sessionEmail = mysqli_real_escape_string($conn, $data['sessionEmail']);
+$sessionId = intval($data['sessionId']); // Convert to integer
 
-// Extract attendance data
-$type = isset($data["type"]) ? $data["type"] : null; // 'in' or 'out'
-$location = isset($data["location"]) ? $data["location"] : null; // Full address from OpenCage
-$timestamp = isset($data["timestamp"]) ? $data["timestamp"] : null; // Timestamp from frontend
+// Insert data into attendence table
+$sql = "INSERT INTO attendence (type, location, session_email, session_id, DateTime) 
+        VALUES ('$type', '$location', '$sessionEmail', $sessionId, NOW())";
 
-// Validate required fields
-if (empty($type) || empty($location) || empty($timestamp)) {
-    echo json_encode([
-        "success" => false,
-        "error" => "Missing required fields",
-        "receivedData" => [
-            "type" => $type,
-            "location" => $location,
-            "timestamp" => $timestamp
-        ],
-        "sessionVariables" => $_SESSION // Include session variables in the response
-    ]);
-    exit();
-}
-
-// Insert attendance data into the database
-$sql = "INSERT INTO attendence (type, location, timestamp) 
-        VALUES (?, ?, ?)";
-
-$stmt = $conn->prepare($sql);
-if (!$stmt) {
-    error_log("Prepare failed: " . $conn->error);
-    echo json_encode([
-        "success" => false,
-        "error" => "Prepare failed: " . $conn->error,
-        "sessionVariables" => $_SESSION // Include session variables in the response
-    ]);
-    exit();
-}
-
-$stmt->bind_param("sss", $type, $location, $timestamp);
-
-if ($stmt->execute()) {
-    echo json_encode([
-        "success" => true,
-        "message" => "Attendance marked successfully",
-        "insertedData" => [
-            "type" => $type,
-            "location" => $location,
-            "timestamp" => $timestamp
-        ],
-        "sessionVariables" => $_SESSION // Include session variables in the response
-    ]);
+if (mysqli_query($conn, $sql)) {
+    echo json_encode(["success" => "Attendance recorded successfully"]);
 } else {
-    error_log("Execute failed: " . $stmt->error);
-    echo json_encode([
-        "success" => false,
-        "error" => "Error marking attendance: " . $stmt->error,
-        "receivedData" => [
-            "type" => $type,
-            "location" => $location,
-            "timestamp" => $timestamp
-        ],
-        "sessionVariables" => $_SESSION // Include session variables in the response
-    ]);
+    echo json_encode(["error" => "Failed to insert data: " . mysqli_error($conn)]);
 }
 
-$stmt->close();
-$conn->close();
+mysqli_close($conn);
 ?>

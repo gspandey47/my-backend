@@ -8,7 +8,7 @@ if ($conn->connect_error) {
     die(json_encode(["error" => "Connection failed: " . $conn->connect_error]));
 }
 
-$sql = "SELECT id, username, email FROM register"; // Don't fetch passwords for security reasons
+$sql = "SELECT id, username, email FROM register ORDER BY id DESC"; // Don't fetch passwords for security reasons
 $result = $conn->query($sql);
 
 $users = [];
