@@ -11,7 +11,7 @@ if ($conn->connect_error) {
 // Base URL for uploads
 $uploadPath = "http://localhost/my-backend/uploads/";
 
-$query = "SELECT * FROM approve_emp"; // Fetch all approve employees
+$query = "SELECT * FROM approve_emp  ORDER BY Eid DESC"; // Fetch all approve employees
 $result = $conn->query($query);
 
 if (!$result) {
